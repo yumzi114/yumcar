@@ -7,6 +7,8 @@ My IOT rasberry Board with app
 <https://github.com/FYSETC/FYSETC-CTP40>
 * BOOT IMAGE : Used plymouth util and theme <https://www.gnome-look.org/p/2205858>
 **display driver is display backend x11 not working**
+
+
 **DRM is not supported**
 
 <img src="https://github.com/user-attachments/assets/b7385592-434b-45b9-a995-316af5be78b0" width="450px" height="300px"></img><br/>
