@@ -10,3 +10,4 @@ license.workspace = true
 eframe = { version = "0.27.0", features = ["persistence"] }
 egui27 = { version = "0.27", package = "egui", default-features = false, optional = true }
 catppuccin-egui = { version = "5.1", default-features = false, features = ["egui27"] }
+egui_nerdfonts = "0.1.3"
