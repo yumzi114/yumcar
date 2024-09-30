@@ -1,16 +1,29 @@
 // use eframe::{egui::{self, Pos2, Rounding, Sense, Vec2, ViewportBuilder}};
 mod app_conf;
+mod content;
 use app_conf::setup_custom_fonts;
 use catppuccin_egui::{FRAPPE, LATTE, MACCHIATO, MOCHA};
-use eframe::egui::{self, menu, Color32, RichText, ViewportBuilder};
+use eframe::egui::{self, menu, Color32, RichText, Vec2, ViewportBuilder};
+use content::{graph::graph_view, main::main_view, remote::remote_view, view::view_view};
+
+
+#[derive(Clone,Default)]
+enum Menu{
+    REMOTE,
+    VIEW,
+    GRAPH,
+    #[default]
+    None
+}
 
 
 fn main() {
     let windows = ViewportBuilder{
         title: Some(String::from("yum car app")),
         app_id: Some(String::from("yum car app")),
-        fullsize_content_view: Some(true),
+        // fullsize_content_view: Some(true),
         titlebar_shown: Some(false),
+        min_inner_size: Some(Vec2::new(380., 800.)),
         resizable: Some(false),
         fullscreen:Some(true),
         ..Default::default()
@@ -26,7 +39,9 @@ fn main() {
 }
 
 #[derive(Default)]
-struct MyEguiApp {}
+struct MyEguiApp {
+    menu : Menu,
+}
 
 impl MyEguiApp {
     fn new(cc: &eframe::CreationContext<'_>) -> Self {
@@ -49,37 +64,62 @@ impl eframe::App for MyEguiApp {
             // ui.label(format!("{}", egui_nerdfonts::regular::REMOTE));
             ui.menu_button(
                 RichText::new(
-                    format!("{} Remote", egui_nerdfonts::regular::REMOTE_1))
+                    format!("{} Main", egui_nerdfonts::regular::HOME))
                     .strong()
-                    .size(30.0)
+                    .size(22.0)
                     .color(Color32::from_rgb(38, 150, 255)), |ui| {
                 if ui.button("Open").clicked() {
-                    
+                    self.menu=Menu::None;
+                    // …
+                }
+            });
+            ui.menu_button(
+                RichText::new(
+                    format!("{} Remote", egui_nerdfonts::regular::REMOTE_1))
+                    .strong()
+                    .size(22.0)
+                    .color(Color32::from_rgb(38, 150, 255)), |ui| {
+                if ui.button("Open").clicked() {
+                    self.menu=Menu::REMOTE;
                     // …
                 }
             });
             ui.menu_button(RichText::new(
                 format!("{} View", egui_nerdfonts::regular::MONITOR))
                 .strong()
-                .size(30.0)
+                .size(22.0)
                 .color(Color32::from_rgb(38, 150, 255)), |ui| {
                 if ui.button("Open").clicked() {
-                    
+                    self.menu=Menu::VIEW;
                     // …
                 }
             });
             ui.menu_button(RichText::new(
                 format!("{} Graph", egui_nerdfonts::regular::GRAPH_1))
                 .strong()
-                .size(30.0)
+                .size(22.0)
                 .color(Color32::from_rgb(38, 150, 255)), |ui| {
                 if ui.button("Open").clicked() {
-                    // …
+                    self.menu =Menu::GRAPH;
                 }
             });
         });
-           ui.add_space(25.);
-           ui.heading("START CAR APP");
+           ui.add_space(50.);
+           match self.menu {
+            Menu::REMOTE=>{
+                remote_view(ui,ctx);
+            },
+            Menu::VIEW=>{
+                view_view(ui,ctx);
+            },
+            Menu::GRAPH=>{
+                graph_view(ui,ctx);
+            }
+            _=>{
+                main_view(ui,ctx);
+            }
+           }
+        //    ui.heading("START CAR APP");
        });
    }
 }
