@@ -19,6 +19,6 @@ pub fn setup_custom_fonts(ctx: &egui::Context) {
         .entry(egui::FontFamily::Monospace)
         .or_default()
         .push("my_font".to_owned());
-    egui_nerdfonts::add_to_fonts(&mut fonts, egui_nerdfonts::Variant::Regular);
+    // egui_nerdfonts::add_to_fonts(&mut fonts, egui_nerdfonts::Variant::Regular);
     ctx.set_fonts(fonts);
 }
