@@ -62,9 +62,6 @@ pub fn socket_reader(
         let rt  = Runtime::new().unwrap();
         rt.block_on(async {
             info!("SOCKET READER THREAD OPEN");
-            // let uri: Uri = SOCKET_URL.parse().unwrap();
-            // let builder = ClientRequestBuilder::new(uri);
-            // let (mut ws_stream, _) = connect(builder).expect("Failed to connect");
             loop{
                 if let Ok(socket_mem)=socket.lock().as_mut(){
                     let ss = socket_mem.as_mut();
