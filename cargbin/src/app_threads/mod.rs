@@ -16,7 +16,9 @@ use tungstenite::{connect, Message, WebSocket};
 use url::Url;
 use futures_util::{future, pin_mut};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use rumqttc::{AsyncClient, Client, MqttOptions, QoS};
+use rumqttc::{AsyncClient, Client, MqttOptions, Outgoing, Packet, QoS};
+
+
 use std::borrow::BorrowMut;
 
 #[cfg(unix)]
@@ -40,7 +42,6 @@ pub fn socket_ping(
    
                 thread::sleep(Duration::from_secs(10));
                 if let Some(socket)=(*socket.lock().unwrap()).as_mut(){
-                    socket.send(Message::Ping(vec![0_u8])).unwrap();
                     match socket.get_mut() {
                         tungstenite::stream::MaybeTlsStream::Plain(stream) => {stream.set_read_timeout(Some(Duration::from_secs(15))).unwrap()},
                         tungstenite::stream::MaybeTlsStream::NativeTls(stream) => {
@@ -48,6 +49,10 @@ pub fn socket_ping(
                         }
                         _ => unimplemented!(),
                     }
+                    if socket.send(Message::Ping(vec![0_u8])).is_ok(){
+
+                    };
+                    
                 }
             }
         })
@@ -83,22 +88,58 @@ pub fn socket_reader(
         });
     });
 }
-pub fn mqtt_reader(){
-    
-    let rt  = Runtime::new().unwrap();
-    rt.block_on(async {
-        let mut mqttoptions = MqttOptions::new(
-            "yumcar_app",
-            MQTT_IP,
-              1883);
-        mqttoptions.set_credentials(MQTT_ID.to_string(),MQTT_PW.to_string());
-        mqttoptions.set_keep_alive(Duration::from_secs(5));
-        let (mut client, mut eventloop) = AsyncClient::new(mqttoptions, 10);
-        
-        client.subscribe(MQTT_TOPIC, QoS::AtMostOnce).await.unwrap();
-        while let Ok(notification) = eventloop.poll().await {
+pub fn mqtt_reader(
+    tx:Sender<String>,
+){
+    thread::spawn(move|| {
+        let rt  = Runtime::new().unwrap();
+        rt.block_on(async {
+            let mut mqttoptions = MqttOptions::new(
+                "yumcar_app",
+                MQTT_IP,
+                1883);
+            mqttoptions.set_credentials(MQTT_ID.to_string(),MQTT_PW.to_string());
+            mqttoptions.set_keep_alive(Duration::from_secs(5));
+            let (mut client, mut eventloop) = AsyncClient::new(mqttoptions, 10);
             
-            println!("Received = {:?}", notification);
-        }
+            client.subscribe(MQTT_TOPIC, QoS::AtMostOnce).await.unwrap();
+            loop{
+                if let Ok(notification) = eventloop.poll().await {
+                    if let rumqttc::Event::Incoming(packet)=notification{
+                        if let Packet::Publish(data)=packet{
+                            // println!("Received = {:?}", data.payload);
+                            // data.payload.
+                            let bytes_vec = Vec::from(data.payload);
+                            // let str::from_utf8(&bytes)
+                            let mut str = String::from_utf8(bytes_vec).expect("Our bytes should be valid utf8");
+                            str.remove(0);
+                            str.remove(str.len()-1);
+                            // str.replace("[", "");
+                            // str.replace("]", "");
+                            let v: Vec<&str> = str.split(',').collect();
+                            // let asdas:Vec<String> =str.split(",");
+                            let mut msg =format!("temperature : {:?}, humidity : {:?}",v[0], v[1]);
+                            // msg.replace("", "new");
+                            tx.send(msg).unwrap();
+                        }
+                    }
+                    // // match notification{
+                    // //     rumqttc::Event::Incoming(packet)=>{
+
+                    // //     },
+                    // //     rumqttc::Event::Outgoing(packet)=>{
+                    // //         if packet ==Outgoing::Publish(){
+                                
+                    // //         }
+
+                    // //     },
+                    // // }
+                    // println!("Received = {:?}", notification);
+                }
+                thread::sleep(Duration::from_millis(1));
+            }
+            
+        });
     });
+    
 }

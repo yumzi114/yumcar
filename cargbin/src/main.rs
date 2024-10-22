@@ -8,7 +8,7 @@ use app_threads::{socket_reader,mqtt_reader,socket_ping};
 // use app_threads::{socket_ping, socket_reader};
 // use catppuccin_egui::{FRAPPE, LATTE, MACCHIATO, MOCHA};
 use eframe::egui::{self, menu, vec2, Color32, RichText, Vec2, ViewportBuilder,Ui};
-use content::{graph::graph_view, main::main_view, remote::remote_view, view::view_view,chat::chat_view};
+use content::{graph::graph_view, main::main_view, remote::remote_view, view::ht_view,chat::chat_view};
 use egui_tracing::EventCollector;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use tracing::{info, Level,warn};
@@ -23,7 +23,7 @@ const SOCKET_URL: &'static str = env!("SOCKET_URL");
 #[derive(Clone,Default)]
 enum Menu{
     REMOTE,
-    VIEW,
+    HT_VIEW,
     GRAPH,
     CHAT,
     LOGVIEW,
@@ -67,7 +67,8 @@ fn main() {
             socket_reader(msg_mem,socket_mem);
             let socket_mem = app.socket.clone();
             socket_ping(msg_sender_mem,socket_mem);
-            // mqtt_reader();
+            let mqtt_sender = app.mqtt_sender.clone();
+            mqtt_reader(mqtt_sender);
             // let socket_mem=app.socket_mem.clone();
             // socket_reader(socket_mem,msg_mem); 
             // // let socket_mem=app.socket_mem.clone();
@@ -85,6 +86,9 @@ struct MyEguiApp {
     message:Arc<Mutex<Vec<String>>>,
     msg_sender:Arc<Mutex<Sender<Message>>>,
     msg_reader:Arc<Mutex<Receiver<Message>>>,
+    mqtt_sender:Sender<String>,
+    mqtt_reader:Receiver<String>,
+    mqtt_msg:Vec<String>,
     socket:Arc<Mutex<Option<WebSocket<MaybeTlsStream<TcpStream>>>>> ,
 }
 
@@ -105,6 +109,7 @@ impl MyEguiApp {
             *socket.lock().unwrap()=Some(sockets);
         }
         let (s, r) = unbounded::<Message>();
+        let (mqtt_sender, mqtt_reader) = unbounded::<String>();
         let msg_sender = Arc::new(Mutex::new(s));
         let msg_reader = Arc::new(Mutex::new(r));
         let message = Arc::new(Mutex::new(repeat("".to_string()).take(5).collect()));
@@ -113,9 +118,12 @@ impl MyEguiApp {
             menu:Menu::default(),
             msg_sender,
             msg_reader,
+            mqtt_sender,
+            mqtt_reader,
             collector,
             message,
             socket,
+            mqtt_msg:vec![]
             // ..Default::default()
         }
     }
@@ -124,7 +132,9 @@ impl MyEguiApp {
 impl eframe::App for MyEguiApp {
    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
     ctx.request_repaint();
-    
+    if let Ok(mqtt_msg)=self.mqtt_reader.try_recv(){
+        self.mqtt_msg.push(mqtt_msg);
+    }
     // catppuccin_egui::set_theme(ctx, catppuccin_egui::MOCHA);
     ctx.set_pixels_per_point(1.25);
        egui::CentralPanel::default().show(ctx, |ui| {
@@ -174,8 +184,8 @@ impl eframe::App for MyEguiApp {
                 .strong()
                 .size(22.0)
                 .color(Color32::from_rgb(38, 150, 255)), |ui| {
-                if ui.button("Open").clicked() {
-                    self.menu=Menu::VIEW;
+                if ui.button("humidity/temperature").clicked() {
+                    self.menu=Menu::HT_VIEW;
                     // …
                 }
             });
@@ -196,8 +206,8 @@ impl eframe::App for MyEguiApp {
             Menu::REMOTE=>{
                 remote_view(ui,ctx);
             },
-            Menu::VIEW=>{
-                view_view(ui,ctx);
+            Menu::HT_VIEW=>{
+                ht_view(ui,ctx,self.mqtt_msg.as_mut());
             },
             Menu::GRAPH=>{
                 graph_view(ui,ctx);
@@ -212,7 +222,6 @@ impl eframe::App for MyEguiApp {
                 egui::ScrollArea::both().show(ui, |ui| {
                     ui.label(RichText::new(
                         "HI THERE!!!"
-                        // format!("{} View", egui_nerdfonts::regular::MONITOR)
                     )
                         .strong()
                         .size(22.0)
